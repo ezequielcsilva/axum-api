@@ -4,7 +4,7 @@ use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 
-#[derive(Serialize, Deserialize, Clone, ToSchema, FromRow)]
+#[derive(Serialize, Deserialize, Clone, Debug, ToSchema, FromRow)]
 pub struct Todo {
     pub id: Uuid,
     pub title: String,
@@ -12,4 +12,3 @@ pub struct Todo {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-
