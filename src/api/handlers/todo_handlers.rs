@@ -1,12 +1,14 @@
 use axum::{extract::{Path, State, Query}, Json};
 use uuid::Uuid;
+use tokio::time::Instant;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     state::AppState, 
     domain::todos::{
         Todo, CreateTodoRequest, UpdateTodoRequest, PaginationQuery, PaginatedResponse
     }, 
-    domain::todos::traits::TodoFinder,
+    domain::todos::traits::{TodoFinder, TodoCreator},
     application::todos::{
         CreateTodoUseCase, GetTodoUseCase, ListTodosUseCase, UpdateTodoUseCase, DeleteTodoUseCase
     },
@@ -112,4 +114,76 @@ pub async fn get_todos_by_done(
 ) -> Result<Json<Vec<Todo>>, ApiError> {
     let todos = state.todo_repository.find_by_done(done).await?;
     Ok(Json(todos))
+}
+
+#[derive(Deserialize)]
+pub struct PerformanceTestRequest {
+    pub message_count: u32,
+    pub batch_size: Option<u32>,
+}
+
+#[derive(Serialize)]
+pub struct PerformanceTestResponse {
+    pub total_messages: u32,
+    pub duration_ms: u64,
+    pub messages_per_second: f64,
+    pub success_count: u32,
+    pub error_count: u32,
+    pub success_rate: f64,
+}
+
+#[utoipa::path(
+    post,
+    path = "/todos/performance-test",
+    request_body = PerformanceTestRequest,
+    responses((status = 200, body = PerformanceTestResponse)),
+    tag = "todos"
+)]
+pub async fn performance_test(
+    State(state): State<AppState>,
+    Json(payload): Json<PerformanceTestRequest>,
+) -> Result<Json<PerformanceTestResponse>, ApiError> {
+    let start_time = Instant::now();
+    let message_count = payload.message_count;
+    let batch_size = payload.batch_size.unwrap_or(10).min(100);
+    
+    let mut success_count = 0;
+    let mut error_count = 0;
+    
+    // Create todos directly in batches
+    for batch_start in (0..message_count).step_by(batch_size as usize) {
+        let batch_end = (batch_start + batch_size).min(message_count);
+        
+        for i in batch_start..batch_end {
+            let create_request = CreateTodoRequest {
+                title: format!("Performance Test Todo #{}", i),
+                done: Some(i % 2 == 0),
+            };
+            
+            // Create todo directly using the repository
+            match state.todo_repository.create(create_request).await {
+                Ok(_) => success_count += 1,
+                Err(_) => error_count += 1,
+            }
+        }
+        
+        // Small delay between batches to avoid overwhelming the database
+        tokio::time::sleep(tokio::time::Duration::from_millis(1)).await;
+    }
+    
+    let duration = start_time.elapsed();
+    let duration_ms = duration.as_millis() as u64;
+    let messages_per_second = (message_count as f64) / (duration.as_secs_f64());
+    let success_rate = (success_count as f64 / message_count as f64) * 100.0;
+    
+    let response = PerformanceTestResponse {
+        total_messages: message_count,
+        duration_ms,
+        messages_per_second,
+        success_count,
+        error_count,
+        success_rate,
+    };
+    
+    Ok(Json(response))
 }

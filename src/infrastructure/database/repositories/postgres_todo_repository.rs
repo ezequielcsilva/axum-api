@@ -28,7 +28,7 @@ impl TodoCreator for PostgresTodoRepository {
         )
         .bind(Uuid::new_v4())
         .bind(&data.title)
-        .bind(false)
+        .bind(data.done.unwrap_or(false))
         .bind(Utc::now())
         .bind(Utc::now())
         .fetch_one(&self.pool)

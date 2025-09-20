@@ -4,4 +4,3 @@ pub mod traits;
 
 pub use entities::*;
 pub use value_objects::*;
-pub use traits::*;

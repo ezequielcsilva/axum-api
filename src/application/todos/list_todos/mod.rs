@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 
 use crate::domain::todos::{Todo, PaginationQuery, PaginatedResponse};
 use crate::domain::todos::traits::TodoPaginator;

@@ -3,7 +3,8 @@ use utoipa::ToSchema;
 
 #[derive(Deserialize, ToSchema)]
 pub struct CreateTodoRequest {
-    pub title: String
+    pub title: String,
+    pub done: Option<bool>,
 }
 
 #[derive(Deserialize, ToSchema)]
